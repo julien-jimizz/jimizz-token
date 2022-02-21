@@ -1,0 +1,30 @@
+{
+  "name": "jimizz-bep20",
+  "version": "1.0.0",
+  "description": "Jimizz is a cryptocurrency designed by the French leader of the porn industry to revolutionize this space",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/julien-jimizz/jimizz-token.git"
+  },
+  "author": "Jimizz Team",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/julien-jimizz/jimizz-token/issues"
+  },
+  "homepage": "https://github.com/julien-jimizz/jimizz-token#readme",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.5",
+    "@nomiclabs/hardhat-waffle": "^2.0.2",
+    "chai": "^4.3.6",
+    "ethereum-waffle": "^3.4.0",
+    "ethers": "^5.5.4",
+    "hardhat": "^2.8.4"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.5.0"
+  }
+}
