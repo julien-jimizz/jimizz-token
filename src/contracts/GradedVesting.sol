@@ -121,7 +121,6 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
     );
 
     // Build schedules
-    scheduleCount = 0;
     for (uint i = 0; i < _timestamps.length; i++) {
       if (i > 0) {
         require(
@@ -184,11 +183,11 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
     returns (uint256 availableAmount)
   {
     // Retrieve current percentage
+    uint i = 0;
     uint8 percentage;
-    for (uint i = 0; i < scheduleCount; i++) {
-      if (block.timestamp >= schedules[i].timestamp) {
-        percentage = schedules[i].percentage;
-      }
+    while (block.timestamp >= schedules[i].timestamp && i < scheduleCount) {
+      percentage = schedules[i].percentage;
+      i++;
     }
 
     // Retrieve available amount to withdraw
