@@ -87,13 +87,14 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
    * @dev constructor
    * @param _jimizz The address of Jimizz BEP20
    * @param _beneficiary The address of the beneficiary
+   * @param _initialBalance The initial balance of tokens deposited on this contract
    * @param _timestamps Array containing all release dates
    * @param _percentages Array containing all release percentages
    */
   constructor(
     address _jimizz,
     address _beneficiary,
-    uint256 _amount,
+    uint256 _initialBalance,
     uint64[] memory _timestamps,
     uint8[] memory _percentages
   ) {
@@ -110,10 +111,10 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
     beneficiary = _beneficiary;
 
     require(
-      _amount > 0,
+      _initialBalance > 0,
       "Amount should be greater than 0"
     );
-    initialBalance = _amount;
+    initialBalance = _initialBalance;
 
     require(
       _timestamps.length == _percentages.length,
