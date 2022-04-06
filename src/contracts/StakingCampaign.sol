@@ -365,6 +365,9 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
   {
     uint elapsed = block.timestamp - s.startedOn;
     uint totalTime = s.endsOn - s.startedOn;
+    if (elapsed > totalTime) {
+      elapsed = totalTime;
+    }
     return uint(rewardsPercentage) * s.amount * elapsed / totalTime / 10000;
   }
 }
