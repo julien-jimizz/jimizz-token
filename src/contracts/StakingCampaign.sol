@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
 
 import "./Jimizz.sol";
 import "./EmergencyDrainable.sol";
@@ -16,7 +15,6 @@ import "./EmergencyDrainable.sol";
  * Jimizz Staking campaign contract
  */
 contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainable {
-  using SafeMath for uint256;
   using SafeERC20 for Jimizz;
 
 
@@ -66,22 +64,22 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
   /**
    * @notice Rewards percentage
    */
-  uint8 public rewardsPercentage;
+  uint16 public immutable rewardsPercentage;
 
   /**
    * @notice Lockup time
    */
-  uint256 public lockupTime;
-
-  /**
-   * @notice Determines if the campaign is open or closed
-   */
-  bool public open;
+  uint256 public immutable lockupTime;
 
   /**
    * @dev Array used to store all stakers
    */
   Stakeholder[] private stakeholders;
+
+  /**
+   * @dev Total of required amount to refund all stakes
+   */
+  uint private requiredBalance;
 
   /**
    * @dev
@@ -90,6 +88,14 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
    * in order to save gas
    */
   mapping(address => uint256) private stakeIndexes;
+
+
+  // ==== Events ==== //
+
+  /**
+   * @notice Event emitted when owner drain funds
+   */
+  event StakedFor(address recipient, uint256 amount);
 
 
   // ==== Constructor ==== //
@@ -102,9 +108,11 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
    */
   constructor(
     address _jimizz,
-    uint8 _rewardsPercentage,
+    uint16 _rewardsPercentage,
     uint256 _lockupTime
-  ) {
+  )
+    EmergencyDrainable(_jimizz)
+  {
     require(
       _jimizz != address(0),
       "Jimizz address is not valid"
@@ -118,7 +126,6 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
     rewardsPercentage = _rewardsPercentage;
 
     lockupTime = _lockupTime;
-    open = true;
 
     // Avoid index 0 to prevent index-1 bug
     stakeholders.push();
@@ -154,38 +161,63 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
     // Get total released amount among every stakes
     uint totalReleased;
     uint index = stakeIndexes[_msgSender()];
-    for (uint i = 0; i < stakeholders[index].stakes.length; i++) {
+
+    uint i;
+    do {
       if (
         stakeholders[index].stakes[i].endsOn <= block.timestamp &&
         stakeholders[index].stakes[i].amount > 0 // Just a double check
       ) {
         // Track released amount
-        totalReleased = totalReleased.add(
-          stakeholders[index].stakes[i].amount
-        );
+        totalReleased = totalReleased + stakeholders[index].stakes[i].amount;
 
-        // Remove stake
-        uint size = stakeholders[index].stakes.length;
-        stakeholders[index].stakes[i] = stakeholders[index].stakes[size - 1];
+        // Replace current stake with the last one to remove it
+        stakeholders[index].stakes[i] = stakeholders[index].stakes[
+          stakeholders[index].stakes.length - 1
+        ];
+
+        // Reduce array size
         stakeholders[index].stakes.pop();
+
+        // Note: We do not increment i to ensure that the swapped stake
+        // is evaluated during the next iteration
+      } else {
+        i++;
       }
-    }
+    } while (i < stakeholders[index].stakes.length);
+
     require(
       totalReleased > 0,
       "Nothing to withdraw yet"
     );
 
     // Calculate rewards
-    uint rewards = totalReleased
-      .mul(rewardsPercentage)
-      .div(100);
+    uint rewards = totalReleased * rewardsPercentage / 10000;
 
     // Transfer total released + rewards
-    uint total = totalReleased.add(rewards);
-    jimizz.transfer(
+    uint total = totalReleased + rewards;
+    jimizz.safeTransfer(
       stakeholders[index].user,
       total
     );
+
+    if (requiredBalance > total) {
+      requiredBalance -= total;
+    } else {
+      requiredBalance = 0;
+    }
+  }
+
+  /**
+   * @dev This method is used to stake tokens for an other beneficiary
+   * @param _staker The address of the staker
+   * @param _amount The amount to stake
+   */
+  function stakeFor(address _staker, uint256 _amount)
+    external
+  {
+    _stake(_staker, _amount);
+    emit StakedFor(_staker, _amount);
   }
 
 
@@ -204,7 +236,7 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
   {
     uint256 total;
     for (uint i = 0; i < stakeholders[stakeIndexes[_staker]].stakes.length; i++) {
-      total = total.add(stakeholders[stakeIndexes[_staker]].stakes[i].amount);
+      total = total + stakeholders[stakeIndexes[_staker]].stakes[i].amount;
     }
 
     return (total > 0, total);
@@ -240,6 +272,21 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
     return summary;
   }
 
+  /**
+   * @notice Get available amount of rewards left in the campaign
+   */
+  function getAvailableRewards()
+    public
+    view
+    returns (uint availableRewards)
+  {
+    availableRewards = 0;
+    uint balance = jimizz.balanceOf(address(this));
+    if (balance > requiredBalance) {
+      availableRewards = balance - requiredBalance;
+    }
+  }
+
 
   // ==== Private methods ==== //
 
@@ -255,19 +302,23 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
     private
   {
     require(
-      open == true,
-      "Campaign is currently closed"
-    );
-
-    require(
       _amount > 0,
       "You need to stake more than 0"
     );
 
+    // Check that the contract has enough tokens to cover the rewards
+    uint rewards = _amount * rewardsPercentage / 10000;
+    require(
+      getAvailableRewards() >= rewards,
+      "Campaign does not have enough tokens to allow this amount"
+    );
+
+    // Check transfer
     require(
       jimizz.transferFrom(_msgSender(), address(this), _amount),
       "Transfer failed"
     );
+    requiredBalance += _amount + rewards;
 
     uint256 index = stakeIndexes[_staker];
     if (index == 0) {
@@ -279,7 +330,7 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
         _staker,
         _amount,
         block.timestamp,
-        block.timestamp.add(lockupTime)
+        block.timestamp + lockupTime
       )
     );
   }
@@ -302,7 +353,7 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
   }
 
   /**
-   * @dev Calculate current reward for a give stake
+   * @dev Calculate current reward for a given stake
    * @param s Stake
    */
   function _calculateReward(
@@ -312,42 +363,8 @@ contract StakingCampaign is Context, Ownable, ReentrancyGuard, EmergencyDrainabl
     view
     returns (uint256)
   {
-    uint elapsed = block.timestamp
-      .sub(s.startedOn);
-    uint totalTime = s.endsOn
-      .sub(s.startedOn);
-    return uint(rewardsPercentage)
-      .mul(s.amount)
-      .div(100)
-      .mul(elapsed.mul(100).div(totalTime))
-      .div(100);
-  }
-
-
-  // ==== Restricted methods ==== //
-
-  /**
-   * @dev Only owner method used to open/close the campaign
-   * @param _open True to open, False to close
-   */
-  function setOpen(
-    bool _open
-  )
-    external
-    onlyOwner
-  {
-    open = _open;
-  }
-
-  /**
-   * @dev This method is used to stake tokens for a given staker
-   * @param _staker The address of the staker
-   * @param _amount The amount to stake
-   */
-  function stakeFor(address _staker, uint256 _amount)
-    external
-    onlyOwner
-  {
-    _stake(_staker, _amount);
+    uint elapsed = block.timestamp - s.startedOn;
+    uint totalTime = s.endsOn - s.startedOn;
+    return uint(rewardsPercentage) * s.amount * elapsed / totalTime / 10000;
   }
 }

@@ -2,8 +2,9 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("GradedVesting contract", () => {
-  const amount = ethers.utils.parseEther('10000');
-  const percentages = [5, 10, 15, 20, 25, 30, 65, 100];
+  const amount = ethers.utils.parseEther('20000');
+  const percentages = [5, 10, 15, 20, 25, 30, 65, 100]
+    .map(p => p * 100);
   const schedules = ((nb) => {
     const schedules = [];
     const date = new Date();
@@ -96,7 +97,13 @@ describe("GradedVesting contract", () => {
       // Collect over time
       for (let i = 0; i < schedules.length; i++) {
         await setTime(schedules[i] + 60);
+
         await gradedVesting.connect(accounts[0]).collect();
+
+        const balance = await jimizz.balanceOf(accounts[0].address);
+        expect(balance).to.eq(
+          amount.mul(percentages[i].toString()).div(10000)
+        );
       }
     });
 

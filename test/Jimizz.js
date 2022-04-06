@@ -107,5 +107,26 @@ describe("Jimizz contract", () => {
       const newOwnerBalance = await jimizz.balanceOf(owner.address);
       expect(newOwnerBalance).to.eq(ownerInitialBalance);
     });
+
+    it("should allow anyone to burn their tokens", async () => {
+      const amountToBurn = ethers.utils.parseEther('1000');
+
+      // Burn with owner
+      const initialOwnerBalance = await jimizz.balanceOf(owner.address);
+      await jimizz.burn(amountToBurn);
+      const newOwnerBalance = await jimizz.balanceOf(owner.address);
+      expect(newOwnerBalance).to.eq(initialOwnerBalance.sub(amountToBurn));
+
+      // Burn with other accounts
+      for (let i = 0; i < 5; i++) {
+        const amount = Math.floor(Math.random() * 1001);
+        await jimizz.transfer(accounts[i].address, amount);
+
+        const initialBalance = await jimizz.balanceOf(accounts[i].address);
+        await jimizz.connect(accounts[i]).burn(amount);
+        const newBalance = await jimizz.balanceOf(accounts[i].address);
+        expect(newBalance).to.eq(initialBalance.sub(amount));
+      }
+    });
   });
 });

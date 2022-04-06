@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./Jimizz.sol";
 import "./EmergencyDrainable.sol";
 
 contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
-  using SafeMath for uint256;
-
+  using SafeERC20 for Jimizz;
 
   // ==== Events ==== //
 
@@ -44,7 +42,7 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
    */
   struct Schedule {
     uint64 timestamp;
-    uint8 percentage;
+    uint16 percentage;
   }
 
 
@@ -73,7 +71,7 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
   /**
    * @notice Initial balance of JMZ
    */
-  uint256 public initialBalance;
+  uint256 public immutable initialBalance;
 
   /**
    * @notice Total of withdrawn amount
@@ -96,8 +94,10 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
     address _beneficiary,
     uint256 _initialBalance,
     uint64[] memory _timestamps,
-    uint8[] memory _percentages
-  ) {
+    uint16[] memory _percentages
+  )
+    EmergencyDrainable(_jimizz)
+  {
     require(
       _jimizz != address(0),
       "Jimizz address is not valid"
@@ -163,10 +163,10 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
     );
 
     // Update withdrawn amount
-    withdrawnAmount = withdrawnAmount.add(availableAmount);
+    withdrawnAmount = withdrawnAmount + availableAmount;
 
     // Send JMZ
-    jimizz.transfer(beneficiary, availableAmount);
+    jimizz.safeTransfer(beneficiary, availableAmount);
 
     // Emit event
     emit Collected(availableAmount, block.timestamp);
@@ -185,7 +185,7 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
   {
     // Retrieve current percentage
     uint i = 0;
-    uint8 percentage;
+    uint16 percentage;
     while (block.timestamp >= schedules[i].timestamp && i < scheduleCount) {
       percentage = schedules[i].percentage;
       i++;
@@ -193,11 +193,11 @@ contract GradedVesting is Context, ReentrancyGuard, EmergencyDrainable {
 
     // Retrieve available amount to withdraw
     availableAmount = jimizz.balanceOf(address(this));
-    if (percentage < 100) {
-      availableAmount = initialBalance.mul(percentage).div(100);
+    if (percentage < 10000) {
+      availableAmount = initialBalance * percentage / 10000;
 
       // Subtract the already withdrawn amount
-      availableAmount = availableAmount.sub(withdrawnAmount);
+      availableAmount = availableAmount - withdrawnAmount;
     }
   }
 
