@@ -28,15 +28,17 @@ describe("BatchTransfer contract", () => {
         batchTransfer.batchTransfer(
           [owner.address],
           [ethers.utils.parseEther('1')]
-        )).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+        )).to.be.revertedWith("ERC20: insufficient allowance");
     });
 
     it("should revert if transfer fails", async () => {
+      const amount = ethers.utils.parseEther('1000');
+      await jimizz.connect(accounts[0]).approve(batchTransfer.address, amount);
       await expect(
         batchTransfer.connect(accounts[0])
           .batchTransfer(
             [owner.address],
-            [ethers.utils.parseEther('1')]
+            [amount]
           )).to.be.revertedWith("ERC20: transfer amount exceeds balance");
     });
 
@@ -49,7 +51,7 @@ describe("BatchTransfer contract", () => {
           .batchTransfer(
             [owner.address],
             [amount.add(1)]
-          )).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+          )).to.be.revertedWith("ERC20: insufficient allowance");
     });
 
     it("should not revert if allowance is greater than the sum of amounts", async () => {

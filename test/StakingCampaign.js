@@ -115,12 +115,12 @@ describe("StakingCampaign contract", () => {
 
       await expect(
         stakingCampaign.stake(amount)
-      ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+      ).to.be.revertedWith("ERC20: insufficient allowance");
 
       await jimizz.approve(stakingCampaign.address, 1);
       await expect(
         stakingCampaign.stake(amount)
-      ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+      ).to.be.revertedWith("ERC20: insufficient allowance");
     });
 
     it("transfer must succeed to allow staking", async () => {
