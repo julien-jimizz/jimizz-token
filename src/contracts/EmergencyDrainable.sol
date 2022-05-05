@@ -15,7 +15,7 @@ abstract contract EmergencyDrainable is Ownable {
   /**
    * @notice Jimizz BEP20 address
    */
-  address private immutable jimizzAddress;
+  address public immutable jimizzAddress;
 
   /**
    * @notice Drain recipient address
