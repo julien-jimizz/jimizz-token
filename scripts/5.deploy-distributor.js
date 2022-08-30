@@ -4,13 +4,13 @@ const {logDeploy, getAddress} = require("./deploy-utils");
 async function main() {
   let token = await getAddress('Jimizz');
 
-  let feesBeneficiary = '0x2f9b4fca723f45533BA7F3a2be7dd08559DC271e';
+  const charityBeneficiary = '0xB0D2Aff330f50841D87c87AE60247Ba395E4ae39';
 
-  // Deploy Gateway
-  const Gateway = await hre.ethers.getContractFactory("Gateway");
-  const gateway = await Gateway.deploy(token, feesBeneficiary);
-  await gateway.deployed();
-  logDeploy(['Gateway', gateway.address]);
+  // Deploy Distributor
+  const Distributor = await hre.ethers.getContractFactory("FeesDistributor");
+  const distributor = await Distributor.deploy(token, charityBeneficiary);
+  await distributor.deployed();
+  logDeploy(['FeesDistributor', distributor.address]);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
