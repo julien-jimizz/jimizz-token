@@ -1,17 +1,12 @@
 const hre = require("hardhat");
+const {logDeploy} = require("./deploy-utils");
 
 async function main() {
   // Deploy Jimizz
   const Jimizz = await hre.ethers.getContractFactory("Jimizz");
   const jimizz = await Jimizz.deploy();
   await jimizz.deployed();
-  console.log("Jimizz deployed to:", jimizz.address);
-
-  // Deploy BatchTransfer
-  const BatchTransfer = await hre.ethers.getContractFactory("BatchTransfer");
-  const batchTransfer = await BatchTransfer.deploy(jimizz.address);
-  await batchTransfer.deployed();
-  console.log("BatchTransfer deployed to:", batchTransfer.address);
+  logDeploy(['Jimizz', jimizz.address]);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
