@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./FeesDistributor.sol";
+
 contract Gateway is Ownable, ReentrancyGuard {
   using SafeERC20 for ERC20Permit;
 
@@ -40,14 +42,14 @@ contract Gateway is Ownable, ReentrancyGuard {
 
   // ==== State ==== //
 
-  ERC20Permit token;
+  ERC20Permit public token;
+  FeesDistributor public feesDistributor;
   mapping(string => Merchant) merchants;
-  address public feesBeneficiary;
 
 
   // ==== Events ==== //
 
-  event FeesBeneficiaryChanged(address oldBeneficiary, address newBeneficiary);
+  event FeesDistributorChanged(address oldFeesDistributor, address newFeesDistributor);
   event MerchantAdded(string merchantId, address beneficiary, uint16 feesPercentage);
   event MerchantStatusChanged(string merchantId, bool enabled);
   event MerchantBeneficiaryChanged(string merchantId, address oldBeneficiary, address newBeneficiary);
@@ -69,17 +71,6 @@ contract Gateway is Ownable, ReentrancyGuard {
   }
 
   /**
-   * @dev Check if the caller is the merchant or the owner
-   */
-  modifier onlyFeesBeneficiaryOrOwner() {
-    require(
-      feesBeneficiary == _msgSender() || owner() == _msgSender(),
-      "Caller is not the fees beneficiary, nor the owner"
-    );
-    _;
-  }
-
-  /**
    * @dev Check if the merchant exists
    */
   modifier merchantExists(string calldata merchantId) {
@@ -96,11 +87,11 @@ contract Gateway is Ownable, ReentrancyGuard {
   /**
    * @dev constructor
    * @param _token Address of the BEP20
-   * @param _feesBeneficiary Address of the fees beneficiary
+   * @param _feesDistributor Address of the fees distributor
    */
   constructor(
     address _token,
-    address _feesBeneficiary
+    address _feesDistributor
   )
   {
     require(
@@ -109,7 +100,11 @@ contract Gateway is Ownable, ReentrancyGuard {
     );
     token = ERC20Permit(_token);
 
-    feesBeneficiary = _feesBeneficiary;
+    require(
+      _feesDistributor != address(0),
+      "FeesDistributor address is not valid"
+    );
+    feesDistributor = FeesDistributor(_feesDistributor);
   }
 
 
@@ -182,12 +177,10 @@ contract Gateway is Ownable, ReentrancyGuard {
       );
     }
 
-    // Transfer fees to feesBeneficiary
+    // Distribute fees
     if (fees > 0) {
-      token.safeTransfer(
-        feesBeneficiary,
-        fees
-      );
+      token.approve(address(feesDistributor), fees);
+      feesDistributor.distribute("Gateway", fees);
     }
 
     // Log the transaction
@@ -349,27 +342,27 @@ contract Gateway is Ownable, ReentrancyGuard {
   }
 
   /**
-   * @notice Change the fees beneficiary
-   * @param _beneficiary The new fees beneficiary address
+   * @notice Change the fees distributor address
+   * @param _feesDistributor The new fees distributor address
    */
-  function changeFeesBeneficiary(
-    address _beneficiary
+  function changeFeesDistributor(
+    address _feesDistributor
   )
     external
-    onlyFeesBeneficiaryOrOwner
+    onlyOwner
   {
     require(
-      _beneficiary != address(0),
-      "Beneficiary address is not valid"
+      _feesDistributor != address(0),
+      "FeesDistributor address is not valid"
     );
 
     require(
-      feesBeneficiary != _beneficiary,
-      "Fees beneficiary cannot be the same as the old one"
+      address(feesDistributor) != _feesDistributor,
+      "Fees distributor cannot be the same as the old one"
     );
 
-    address oldBeneficiary = feesBeneficiary;
-    feesBeneficiary = _beneficiary;
-    emit FeesBeneficiaryChanged(oldBeneficiary, _beneficiary);
+    address oldFeesDistributor = address(feesDistributor);
+    feesDistributor = FeesDistributor(_feesDistributor);
+    emit FeesDistributorChanged(oldFeesDistributor, _feesDistributor);
   }
 }
