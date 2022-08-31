@@ -8,8 +8,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./IJimizzFeeReceiver.sol";
 
-import "hardhat/console.sol";
-
 contract FeesDistributor is Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
@@ -133,7 +131,30 @@ contract FeesDistributor is Ownable, ReentrancyGuard {
 
 
   // ==== Views ==== //
-  // TODO: methods to retrieve beneficiary informations
+  /**
+   * @notice Get beneficiary informations for a given service
+   * @param _serviceName The service name
+   */
+  function getBeneficiaries(
+    string calldata _serviceName
+  )
+    external
+    view
+    returns (Beneficiary[] memory)
+  {
+    Service storage service = services[_serviceName];
+    require(
+      bytes(service.name).length > 0,
+      "Service does not exist"
+    );
+
+    uint n = service.beneficiaries.length - 1;
+    Beneficiary[] memory beneficiaries = new Beneficiary[](n);
+    for (uint i = 1; i < service.beneficiaries.length; i++) {
+      beneficiaries[i - 1] = service.beneficiaries[i];
+    }
+    return beneficiaries;
+  }
 
 
 

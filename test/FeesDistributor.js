@@ -289,6 +289,87 @@ describe("FeesDistributor contract", () => {
     });
   });
 
+  describe("Getting Beneficiaries", () => {
+    it("should revert if service does not exists", async () => {
+      await distributor.addService("SERVICE");
+
+      await expect(
+        distributor.getBeneficiaries("UNKNOWN")
+      ).to.be.revertedWith("Service does not exist");
+
+      await expect(
+        distributor.getBeneficiaries("SERVICE")
+      ).to.be.not.reverted;
+    });
+
+    it("should send all beneficiaries of a given service", async () => {
+      const service = "SERVICE";
+      await distributor.addService(service);
+
+      const bs = [
+        ["B10", 1000, accounts[1].address],
+        ["B20", 2000, accounts[2].address],
+        ["B30", 3000, accounts[3].address],
+      ];
+      for (const b of bs) {
+        await distributor.updateBeneficiary(service, b[0], b[1], b[2], false);
+      }
+
+      const beneficiaries = await distributor.getBeneficiaries(service);
+      for (let i = 0; i < beneficiaries.length; i++) {
+        expect(beneficiaries[i].name).to.eq(bs[i][0]);
+        expect(beneficiaries[i].percentage).to.eq(bs[i][1]);
+        expect(beneficiaries[i].beneficiary).to.eq(bs[i][2]);
+      }
+    });
+
+    it("should not send beneficiaries of other services", async () => {
+      // Adding services and beneficiaries
+      const services = [
+        {
+          name: "SERVICE_1",
+          bs: [
+            ["S1_B10", 1000, accounts[1].address],
+            ["S1_B20", 2000, accounts[2].address],
+            ["S1_B30", 3000, accounts[3].address],
+          ]
+        },
+        {
+          name: "SERVICE_2",
+          bs: [
+            ["S2_B40", 4000, accounts[1].address],
+            ["S2_B50", 5000, accounts[2].address],
+          ]
+        },
+        {
+          name: "SERVICE_3",
+          bs: [
+            ["S3_B10", 1000, accounts[1].address],
+          ]
+        }
+      ];
+
+      for (const s of services) {
+        await distributor.addService(s.name);
+        for (const b of s.bs) {
+          await distributor.updateBeneficiary(s.name, b[0], b[1], b[2], false);
+        }
+      }
+
+      // Checking
+      for (const s of services) {
+        const beneficiaries = await distributor.getBeneficiaries(s.name);
+        expect(beneficiaries.length).to.eq(s.bs.length);
+
+        for (let i = 0; i < beneficiaries.length; i++) {
+          expect(beneficiaries[i].name).to.eq(s.bs[i][0]);
+          expect(beneficiaries[i].percentage).to.eq(s.bs[i][1]);
+          expect(beneficiaries[i].beneficiary).to.eq(s.bs[i][2]);
+        }
+      }
+    });
+  });
+
   describe("Distributing", () => {
     it("should distribute fees to service beneficiaries", async () => {
       await distributor.addService(service);
