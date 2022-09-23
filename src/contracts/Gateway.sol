@@ -145,6 +145,23 @@ contract Gateway is Ownable, ReentrancyGuard {
       "Merchant is disabled"
     );
 
+    // Calculate fees
+    uint fees;
+    if (merchants[merchantId].feesPercentage > 0) {
+      fees = amount * merchants[merchantId].feesPercentage / 10000;
+    }
+
+    // Log the transaction
+    Transaction memory transaction = Transaction(
+      transactionId,
+      merchantId,
+      block.timestamp,
+      amount,
+      fees,
+      owner
+    );
+    merchants[merchantId].transactions[transactionId] = transaction;
+
     // Use payer signature to approve this contract
     token.permit(
       owner,
@@ -163,12 +180,6 @@ contract Gateway is Ownable, ReentrancyGuard {
       amount
     );
 
-    // Calculate fees
-    uint fees;
-    if (merchants[merchantId].feesPercentage > 0) {
-      fees = amount * merchants[merchantId].feesPercentage / 10000;
-    }
-
     // Transfer funds to merchant beneficiary
     if ((amount - fees) > 0) {
       token.safeTransfer(
@@ -179,22 +190,11 @@ contract Gateway is Ownable, ReentrancyGuard {
 
     // Distribute fees
     if (fees > 0) {
-      token.approve(address(feesDistributor), fees);
+      token.safeIncreaseAllowance(address(feesDistributor), fees);
       feesDistributor.distribute("Gateway", fees);
     }
 
-    // Log the transaction
-    Transaction memory transaction = Transaction(
-      transactionId,
-      merchantId,
-      block.timestamp,
-      amount,
-      fees,
-      owner
-    );
-
-    merchants[merchantId].transactions[transactionId] = transaction;
-
+    // Emit event
     emit PaymentMade(merchantId, transactionId, transaction);
   }
 

@@ -79,7 +79,7 @@ contract FeesDistributor is Ownable, ReentrancyGuard {
     token = IERC20(_token);
 
     require(
-      _token != address(0),
+      _charityBeneficiary != address(0),
       "Charity beneficiary address is not valid"
     );
     charityBeneficiary = _charityBeneficiary;
